@@ -23,6 +23,8 @@ endif()
 # Registry: one line per backend source file. Keep them in optimization-path order.
 # ---------------------------------------------------------------------------------------
 gol_backend(byte/byte.cpp)
+gol_backend(bitpack/bitpack.cpp)
+gol_backend(simd/simd.cpp)
 
 # ---------------------------------------------------------------------------------------
 

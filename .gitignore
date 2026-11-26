@@ -1,0 +1,7 @@
+build*/
+bench/stream/stream.c
+bench/stream/stream
+__pycache__/
+*.pyc
+.vscode/
+.idea/

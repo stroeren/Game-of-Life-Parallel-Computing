@@ -25,11 +25,22 @@ endif()
 gol_backend(byte/byte.cpp)
 gol_backend(bitpack/bitpack.cpp)
 gol_backend(simd/simd.cpp)
+gol_backend(omp/omp.cpp)
+gol_cuda_backend(cuda/cuda_naive.cu)
+gol_cuda_backend(cuda/cuda_shared.cu)
 
 # ---------------------------------------------------------------------------------------
 
 add_executable(gol ${PROJECT_SOURCE_DIR}/common/driver_main.cpp)
 target_link_libraries(gol PRIVATE gol_backends)
+
+# Step 5: achievable GPU memory bandwidth (device-to-device copy kernel), for
+# docs/hardware.md. A separate tool, not a backend; built only when CUDA was found.
+if(GOL_HAVE_CUDA)
+  add_executable(gpu_copy cuda/gpu_copy.cu)
+  target_include_directories(gpu_copy PRIVATE ${PROJECT_SOURCE_DIR})
+  target_link_libraries(gpu_copy PRIVATE CUDA::cudart)
+endif()
 
 # Step 6: gol_mpi is its own binary and is built only when MPI was found.
 if(GOL_HAVE_MPI AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/mpi/CMakeLists.txt)

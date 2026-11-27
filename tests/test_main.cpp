@@ -1,4 +1,4 @@
-// CTest entry point. Usage: gol_tests common | blinker | glider | checksum <N>
+// CTest entry point. Usage: gol_tests common | blinker | glider | checksum <N> | threads
 //
 // blinker, glider and checksum run against every available registered backend, so a
 // backend added with one source file and one registry line is tested automatically.
@@ -114,9 +114,9 @@ void test_common() {
 }
 
 // Runs `gens` generations on a fresh backend instance and returns the result.
-gol::Grid evolve(const gol::BackendInfo& b, const gol::Grid& start, int gens) {
+gol::Grid evolve(const gol::BackendInfo& b, const gol::Grid& start, int gens, int threads = 0) {
     auto be = b.make();
-    be->load(start, gol::RunConfig{start.n, 0});
+    be->load(start, gol::RunConfig{start.n, threads});
     be->run(gens);
     return be->store();
 }
@@ -227,6 +227,35 @@ void test_checksum(int n) {
     }
 }
 
+// --------------------------------------------------------------------------------------
+// threads: every backend equals byte with explicit thread counts, including counts that
+// do not divide N (uneven row blocks) and an odd number of generations (pointer swap).
+// Single-threaded backends ignore the count, so this costs them one extra run each.
+// --------------------------------------------------------------------------------------
+void test_threads() {
+    const int n = 256, gens = 31;
+    const gol::BackendInfo* byte = gol::find_backend("byte");
+    if (byte == nullptr) {
+        fail("byte backend is not registered");
+        return;
+    }
+    gol::Grid start = gol::random_grid(n, 7);
+    const uint64_t want = gol::checksum(evolve(*byte, start, gens));
+    for (const auto* b : gol::available_backends()) {
+        if (b->name == "byte") continue;
+        for (int threads : {1, 2, 3, 7}) {
+            std::string what = b->name + " threads=" + std::to_string(threads);
+            try {
+                uint64_t got = gol::checksum(evolve(*b, start, gens, threads));
+                if (got != want) fail(what + ": checksum " + gol::format_checksum(got) + " != byte " + gol::format_checksum(want));
+                else pass(what);
+            } catch (const std::exception& e) {
+                fail(what + ": threw " + e.what());
+            }
+        }
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -245,6 +274,7 @@ int main(int argc, char** argv) {
     else if (which == "blinker") test_blinker();
     else if (which == "glider") test_glider();
     else if (which == "checksum" && argc >= 3) test_checksum(std::atoi(argv[2]));
+    else if (which == "threads") test_threads();
     else {
         std::fprintf(stderr, "unknown test '%s'\n", which.c_str());
         return 2;

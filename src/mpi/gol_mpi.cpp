@@ -515,21 +515,24 @@ int run_all(const gol::Options& o, const Config& cfg, const std::string& decomp,
         r.seconds = st.loop_s;
         r.grid_bytes = static_cast<std::size_t>(o.n) * o.n * sizeof(typename K::T) / K::kCellsPerElem;
         r.checksum = sum;
-        gol::print_csv_row(stdout, r);
+        if (o.get("csv", "on") == "on") gol::print_csv_row(stdout, r);
 
         // Halo model from the guide: 2N cells per rank per generation for strips,
         // 4N / sqrt(p) for blocks.
         const double model = cfg.block ? 4.0 * o.n / std::sqrt(static_cast<double>(world_size))
                                        : 2.0 * o.n;
-        std::fprintf(stderr,
-                     "gol_mpi stats: decomp=%s mode=%s kernel=%s p=%d dims=%s compute_s=%.6f comm_s=%.6f "
-                     "halo_elems_per_rank_gen=%.1f halo_cells_per_rank_gen=%.1f "
-                     "halo_bytes_per_rank_gen=%.1f halo_max_cells_per_rank_gen=%.1f "
-                     "model_cells_per_rank_gen=%.1f scatter_s=%.6f gather_s=%.6f\n",
-                     decomp.c_str(), mode.c_str(), K::kName, world_size, dims.c_str(), st.compute_s,
-                     st.comm_s, st.halo_avg_elems, st.halo_avg_elems * K::kCellsPerElem,
-                     st.halo_avg_elems * sizeof(typename K::T),
-                     st.halo_max_elems * K::kCellsPerElem, model, scatter_max, gather_max);
+        char line[1024];
+        std::snprintf(line, sizeof line,
+                      "gol_mpi stats: decomp=%s mode=%s kernel=%s p=%d dims=%s compute_s=%.6f comm_s=%.6f "
+                      "halo_elems_per_rank_gen=%.1f halo_cells_per_rank_gen=%.1f "
+                      "halo_bytes_per_rank_gen=%.1f halo_max_cells_per_rank_gen=%.1f "
+                      "model_cells_per_rank_gen=%.1f scatter_s=%.6f gather_s=%.6f\n",
+                      decomp.c_str(), mode.c_str(), K::kName, world_size, dims.c_str(), st.compute_s,
+                      st.comm_s, st.halo_avg_elems, st.halo_avg_elems * K::kCellsPerElem,
+                      st.halo_avg_elems * sizeof(typename K::T),
+                      st.halo_max_elems * K::kCellsPerElem, model, scatter_max, gather_max);
+        std::fputs(line, stderr);  // one write: the line cannot be split by our own formatting
+        std::fflush(stderr);
     }
     return 0;
 }
@@ -561,7 +564,7 @@ int main(int argc, char** argv) {
             close(devnull);
         }
     }
-    gol::Options o = gol::parse_cli(argc, argv, {"decomp", "mode", "kernel"});
+    gol::Options o = gol::parse_cli(argc, argv, {"decomp", "mode", "kernel", "csv"});
     if (rank != 0) {
         dup2(saved_out, 1);
         dup2(saved_err, 2);
@@ -591,6 +594,10 @@ int main(int argc, char** argv) {
             throw std::invalid_argument("--mode must be blocking or nonblocking (got '" + mode + "')");
         if (kernel != "byte" && kernel != "bitpack")
             throw std::invalid_argument("--kernel must be byte or bitpack (got '" + kernel + "')");
+
+        const std::string csv = o.get("csv", "on");
+        if (csv != "on" && csv != "off")
+            throw std::invalid_argument("--csv must be on or off (got '" + csv + "')");
 
         Config cfg;
         cfg.n = o.n;

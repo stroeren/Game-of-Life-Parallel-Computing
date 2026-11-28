@@ -102,7 +102,9 @@ if(TARGET gol_mpi AND MPIEXEC_EXECUTABLE)
     list(GET _case 1 _d)
     list(GET _case 2 _p)
     list(GET _case 3 _e)
-    gol_mpi_test(mpi_halo_${_d}_${_k}_p${_p} ${_p} --n 4096 --gens 2 --seed 42 --check
+    # --csv off: stdout stays empty. mpirun forwards stdout and stderr in chunks and ctest
+    # merges them, so a CSV row can land in the middle of the stats line (seen on WSL).
+    gol_mpi_test(mpi_halo_${_d}_${_k}_p${_p} ${_p} --n 4096 --gens 2 --seed 42 --check --csv off
                  --decomp ${_d} --mode blocking --kernel ${_k})
     string(REPLACE "." "\\." _e_re "${_e}")
     set_tests_properties(mpi_halo_${_d}_${_k}_p${_p} PROPERTIES

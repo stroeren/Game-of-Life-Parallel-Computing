@@ -2,14 +2,15 @@
 
 ```
 mpirun -n P build/gol_mpi --n N --gens K --seed S [--decomp strip|block]
-                          [--mode blocking|nonblocking] [--kernel byte|bitpack] [--check]
+                          [--mode blocking|nonblocking] [--kernel byte|bitpack] [--csv on|off] [--check]
 ```
 
 All ranks are processes (one thread each; `--threads` is ignored). stdout is the CSV row of
 CLAUDE.md (`impl` = `mpi-<decomp>-<mode>-<kernel>`, `ranks` = P, `seconds` = the generation
 loop only, max over ranks). stderr carries one `gol_mpi stats:` line with the compute/comm
 split, the measured halo volume and the scatter/gather times (the setup that is not in
-`seconds`). `--check` re-runs the serial byte backend on rank 0 and fails (exit 3) on a
+`seconds`). `--csv off` suppresses the CSV row (the halo tests use it so that mpirun cannot interleave
+stdout into the stats line). `--check` re-runs the serial byte backend on rank 0 and fails (exit 3) on a
 checksum mismatch.
 
 gol_mpi links the existing kernels (`gol::byte::step_region`, `gol::bitpack::step_region`) and

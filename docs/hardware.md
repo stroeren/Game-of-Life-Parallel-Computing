@@ -24,7 +24,15 @@ Rerun it on the testbed; it overwrites this file. All bandwidths are base-1024 G
 | CPU measured, STREAM Triad | 18.1 | bench/stream.sh: STREAM: LLC=12582912 bytes, STREAM_ARRAY_SIZE=10000000 (76 MiB per array), OMP_NUM_THREADS=12 |
 | STREAM / theoretical | 46% | |
 | GPU theoretical | n/a | n/a: no NVIDIA GPU on this machine |
-| GPU measured, device copy kernel | TODO(Person C) | step 5 adds the copy kernel |
+| GPU measured, device copy kernel | n/a | no NVIDIA GPU on this machine |
+
+The GPU row is measured by `bench/gpu_copy.sh`, which runs `build/gpu_copy`
+(`src/cuda/gpu_copy.cu`, built only when CMake finds CUDA). It times a grid-stride
+device-to-device copy kernel with 16-byte (`uint4`) accesses, best of 20 runs, and counts
+read plus write traffic (`2 * bytes / s`, the same model as `gib_per_s`). It also reports a
+1-byte-per-thread copy and `cudaMemcpy` DeviceToDevice for comparison. On a GPU machine, run
+`bench/gpu_copy.sh`, then `GPU_SPEC_GBS=<datasheet GB/s> bench/hwinfo.sh` to fill both GPU
+rows.
 
 ## Raw command output
 

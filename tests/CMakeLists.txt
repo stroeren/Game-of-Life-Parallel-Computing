@@ -8,6 +8,7 @@ add_test(NAME blinker COMMAND gol_tests blinker)
 add_test(NAME glider COMMAND gol_tests glider)
 add_test(NAME checksum_n256 COMMAND gol_tests checksum 256)
 add_test(NAME checksum_n1024 COMMAND gol_tests checksum 1024)
+add_test(NAME threads COMMAND gol_tests threads)
 
 # The driver itself: CSV shape and --check.
 add_test(NAME driver_byte_check

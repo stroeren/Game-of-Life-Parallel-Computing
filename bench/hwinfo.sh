@@ -3,7 +3,8 @@
 #
 # Records lscpu, nproc, free -h, nvidia-smi, nvcc --version, mpirun --version and
 # gcc --version, the DRAM configuration and the theoretical/measured bandwidth ceilings.
-# Run bench/stream.sh first so the STREAM Triad number is included.
+# Run bench/stream.sh first so the STREAM Triad number is included, and on a machine with
+# an NVIDIA GPU bench/gpu_copy.sh so the measured GPU copy bandwidth is included.
 #
 # DRAM details need dmidecode, which needs root. Either run `sudo dmidecode -t memory`
 # yourself and pass what it shows, or leave them out and the file keeps a TODO:
@@ -72,6 +73,13 @@ if [[ -s $STREAM_TXT ]]; then
   stream_cfg=$(head -1 "$STREAM_TXT")
 fi
 
+GPUCOPY_TXT=$ROOT/bench/results/gpucopy_$HOST.txt
+gpucopy=""
+if [[ -s $GPUCOPY_TXT ]]; then
+  gpucopy=$(awk '/^GPU copy kernel:/ { printf "%.1f", $4; exit }' "$GPUCOPY_TXT")
+  gpucopy_cfg=$(awk '/^GPU copy kernel:/ { sub(/^GPU copy kernel: [0-9.]+ GiB\/s /, ""); print; exit }' "$GPUCOPY_TXT")
+fi
+
 gpu_name=""
 if command -v nvidia-smi >/dev/null 2>&1; then
   gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
@@ -118,7 +126,24 @@ fi
     echo "| STREAM / theoretical | $(awk -v a="$triad" -v b="$cpu_theory" 'BEGIN { printf "%.0f%%", 100 * a / b }') | |"
   fi
   echo "| GPU theoretical | ${gpu_theory:-n/a} | ${gpu_theory_line} |"
-  echo "| GPU measured, device copy kernel | TODO(Person C) | step 5 adds the copy kernel |"
+  if [[ -n $gpucopy ]]; then
+    echo "| GPU measured, device copy kernel | ${gpucopy} | bench/gpu_copy.sh (build/gpu_copy): ${gpucopy_cfg} |"
+    if [[ -n ${gpu_theory:-} ]]; then
+      echo "| GPU copy / theoretical | $(awk -v a="$gpucopy" -v b="$gpu_theory" 'BEGIN { printf "%.0f%%", 100 * a / b }') | |"
+    fi
+  elif [[ -n $gpu_name ]]; then
+    echo "| GPU measured, device copy kernel | TODO | run bench/gpu_copy.sh, then rerun this script |"
+  else
+    echo "| GPU measured, device copy kernel | n/a | no NVIDIA GPU on this machine |"
+  fi
+  echo
+  echo 'The GPU row is measured by `bench/gpu_copy.sh`, which runs `build/gpu_copy`'
+  echo '(`src/cuda/gpu_copy.cu`, built only when CMake finds CUDA). It times a grid-stride'
+  echo 'device-to-device copy kernel with 16-byte (`uint4`) accesses, best of 20 runs, and counts'
+  echo 'read plus write traffic (`2 * bytes / s`, the same model as `gib_per_s`). It also reports a'
+  echo '1-byte-per-thread copy and `cudaMemcpy` DeviceToDevice for comparison. On a GPU machine, run'
+  echo '`bench/gpu_copy.sh`, then `GPU_SPEC_GBS=<datasheet GB/s> bench/hwinfo.sh` to fill both GPU'
+  echo 'rows.'
   echo
   echo "## Raw command output"
   echo
@@ -135,6 +160,14 @@ fi
     echo
     echo '```'
     cat "$STREAM_TXT"
+    echo '```'
+  fi
+  if [[ -s $GPUCOPY_TXT ]]; then
+    echo
+    echo "### GPU copy kernel output (bench/results/gpucopy_$HOST.txt)"
+    echo
+    echo '```'
+    cat "$GPUCOPY_TXT"
     echo '```'
   fi
 } >"$OUT"
